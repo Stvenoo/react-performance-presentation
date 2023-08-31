@@ -1,40 +1,1054 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
 
-		<title>reveal.js</title>
+    <title>React Native Performance</title>
 
-		<link rel="stylesheet" href="dist/reset.css">
-		<link rel="stylesheet" href="dist/reveal.css">
-		<link rel="stylesheet" href="dist/theme/black.css">
+    <link rel="stylesheet" href="dist/reset.css" />
+    <link rel="stylesheet" href="dist/reveal.css" />
+    <link rel="stylesheet" href="dist/theme/blood.css" />
+    <link rel="stylesheet" href="dist/custom.css" />
 
-		<!-- Theme used for syntax highlighted code -->
-		<link rel="stylesheet" href="plugin/highlight/monokai.css">
-	</head>
-	<body>
-		<div class="reveal">
-			<div class="slides">
-				<section>Slide 1</section>
-				<section>Slide 2</section>
-			</div>
-		</div>
+    <!-- Theme used for syntax highlighted code -->
+    <link rel="stylesheet" href="plugin/highlight/monokai.css" />
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section>
+          <h3>React (native) Performance</h3>
+          <p>
+            <small> By Steven Van Eenoo</small>
+          </p>
+        </section>
+        <section>
+          <h3>Agenda</h3>
+          <ul>
+            <li>Techniques</li>
+            <li>Context</li>
+            <li>React Native</li>
+            <li>Measure and monitor</li>
+          </ul>
+        </section>
+        <section>
+          <section><h2>Techniques</h2></section>
+          <section>
+            <p>
+              JavaScript defines <span class="h">8 built-in types</span> with
+              <span class="h">7 primitive types</span>
+            </p>
+            <div class="flex justify-around">
+              <div class="flex flex-col">
+                <p class="fragment" data-fragment-index="1">null</p>
+                <p class="fragment" data-fragment-index="1">undefined</p>
+                <p class="fragment" data-fragment-index="1">boolean</p>
+                <p class="fragment" data-fragment-index="1">number</p>
+              </div>
+              <div class="flex flex-col">
+                <p class="fragment" data-fragment-index="1">string</p>
+                <p class="fragment" data-fragment-index="1">symbol</p>
+                <p class="fragment" data-fragment-index="1">bigint</p>
+              </div>
+            </div>
+            <span class="fragment">8 being <span class="h">object</span></span>
+          </section>
+          <section>
+            <p>Primitive types have the following characteristics:</p>
+            <p><span class="h">Compared by value</span></p>
+            <pre><code data-trim data-noescape contenteditable class="javascript">
+						  3 === 3 // true
+							'abc' === 'abc' // true
+						</code></pre>
+            <p>
+              <span class="h">Always immutable</span>: properties can't be
+              changed, added or removed
+            </p>
+            <pre><code data-trim data-noescape contenteditable class="javascript">
+              var str = 'abc';
+              str.length = 1;
+              str.length; // 3
 
-		<script src="dist/reveal.js"></script>
-		<script src="plugin/notes/notes.js"></script>
-		<script src="plugin/markdown/markdown.js"></script>
-		<script src="plugin/highlight/highlight.js"></script>
-		<script>
-			// More info about initialization & config:
-			// - https://revealjs.com/initialization/
-			// - https://revealjs.com/config/
-			Reveal.initialize({
-				hash: true,
+              str.foo = 1;
+              str.foo // undefined
 
-				// Learn about plugins: https://revealjs.com/plugins/
-				plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
-			});
-		</script>
-	</body>
+              var str2 = str.toUpperCase();
+              str; // abc
+              str2; // ABC
+						</code></pre>
+            <p>
+              <span class="h">Fixed set</span>: you can't define your own
+              primitype types
+            </p>
+          </section>
+          <section>
+            <p>All nonprimitive values are objects</p>
+            <p>Objects have the following characteristics:</p>
+            <p class="h">Compared by reference</p>
+            <pre><code data-trim data-noescape contenteditable class="javascript">
+              {} === {} // false
+
+              var obj1 = {};
+              var obj2 = obj1;
+              obj1 === obj2 // true
+            </code></pre>
+            <p class="h">Mutable by default</p>
+            <pre><code data-trim data-noescape contenteditable class="javascript">
+              var obj = {};
+              obj.foo = 1;
+              obj.foo // 1
+            </code></pre>
+            <p class="h">User-extensible via constructors</p>
+          </section>
+          <section>
+            <p>
+              The typeof operator inspects the type of the given value, and
+              always returns one of <span class="h">7 values</span>
+            </p>
+            <pre><code data-trim data-noescape contenteditable class="javascript">
+              typeof undefined     === "undefined"; // true
+              typeof true          === "boolean";   // true
+              typeof 42            === "number";    // true
+              typeof "42"          === "string";    // true
+              typeof Symbol()      === "symbol";    // true
+              typeof { life: 42 }  === "object";    // true
+              typeof 12345n        === "bigint";    // true 
+						</code></pre>
+            <p class="fragment">What about null?</p>
+            <pre
+              class="fragment"
+            ><code data-trim data-noescape contenteditable class="javascript">
+							typeof null === <mark class="fragment no-bg">"object"; // true</mark>
+						</code></pre>
+          </section>
+          <section>
+            <h3>Memoization</h3>
+            <q
+              class="fragment"
+              cite="https://en.wikipedia.org/wiki/Memoization"
+            >
+              an optimization technique used primarily to speed up computer
+              programs by storing the results of expensive function calls and
+              returning the cached result when the
+              <span class="h">same inputs</span> occur again.
+            </q>
+          </section>
+          <section>
+            <p>
+              In React, when we use memoization we're telling our components to
+              remember the last time they rendered with certain props, and if
+              those props haven't changed, just show the same output as before.
+            </p>
+            <p>
+              This <span class="h">can</span> make our app run faster because we
+              avoid unnecessary work.
+            </p>
+          </section>
+          <section>
+            <h3 class="" style="text-transform: none">React.Memo</h3>
+            <p class="fragment">
+              Perform a shallow comparison of the
+              <span class="h">previous</span> and the
+              <span class="h">next</span> props.
+            </p>
+            <p class="fragment">
+              This comparison checks if the prop values are the same by
+              comparing their <span class="h">references</span>. If the prop
+              references are the same, React assumes that the component's output
+              will be the same and skips the <span class="h">re-render</span>.
+            </p>
+            <p class="fragment">
+              <small>Let's look at some examples 👀</small>
+            </p>
+          </section>
+          <section class="fullscreen">
+            <p>Shallow Comparison</p>
+            <pre><code data-trim data-noescape contenteditable class="javascript">
+              function shallow(objA, objB) {
+                if (objectIs(objA, objB)) {
+                  return true;
+                }
+                if (typeof objA !== 'object' || objA === null || typeof objB !== 'object' || objB === null) {
+                  return false;
+                }
+                var keysA = Object.keys(objA);
+                var keysB = Object.keys(objB);
+            
+                if (keysA.length !== keysB.length) {
+                  return false;
+                } // Test for A's keys different from B.
+              
+                for (var i = 0; i < keysA.length; i++) {
+                  var currentKey = keysA[i];
+                  if (!hasOwnProperty.call(objB, currentKey) || !objectIs(objA[currentKey], objB[currentKey])) {
+                    return false;
+                  }
+                }
+              
+                return true;
+              }
+            </code></pre>
+            <a
+              target="_blank"
+              href="https://github.com/facebook/react-native/blob/aafbe7a45824b0bdbc47c49bd2d89a24059e772c/packages/react-native/Libraries/Renderer/implementations/ReactFabric-prod.js#L2232"
+              >React Native implementation</a
+            >
+          </section>
+          <section>
+            <p>Quiz time 🎉</p>
+            <img src="images/shallow_quize_qr.png" />
+          </section>
+          <section>
+            <h3 class="" style="text-transform: none">React.useMemo</h3>
+            <p>
+              A hook that helps optimize the performance by memoizing (caching)
+              the result of a computation, preventing unnecessary
+              recalculations.
+            </p>
+            <pre><code data-trim data-noescape contenteditable class="javascript">
+              const cachedValue = useMemo(calculateValue, dependencies)
+            </code></pre>
+          </section>
+          <section>
+            <h3 style="text-transform: none">useMemo use cases</h3>
+          </section>
+          <section class="fullscreen">
+            <p>1. Skipping expensive calculations</p>
+            <pre><code data-trim data-noescape contenteditable class="javascript"><script type="text/template">
+              function ExpensiveComponent({ data }) {
+                const processedData = useMemo(() => {
+                  // Perform some memory-intensive operations on the array
+                  const processedArray = data.map(num => Math.sqrt(Math.pow(num, 2)));
+                  return processedArray;
+                }, [data]);
+
+                return (
+                  <ul>
+                    {processedData.map(item => (
+                      <li key={item.id}>Processed Value: {item.value}</li>
+                    ))}
+                  </ul>
+                );
+              }
+              </script></code></pre>
+          </section>
+          <section>
+            <p>useMemo</p>
+            <pre>
+      Initial render: result is calculated
+            |
+            v
+      Subsequent render: compare dependencies from last render
+            |
+            v
+        If changed (compared with <span class="h">Object.is</span>): recalculate
+            |
+            v
+      Else return calculated (cached) value
+            </pre>
+            <p class="fragment">
+              <small>Let's look at some examples 👀</small>
+            </p>
+          </section>
+          <section>
+            <p>Remember <span class="h">Object.is</span> comparison</p>
+          </section>
+          <section>
+            <p>2. Skipping re-rendering of components</p>
+            <img class="fragment"" src="images/useMemo_think.png" />
+            <p class="fragment">
+              <small>Let's look at some examples 👀</small>
+            </p>
+          </section>
+          <section class="fullscreen">
+            <p>3. Dependency of another Hook</p>
+            <pre><code data-trim data-noescape contenteditable class="javascript"><script type="text/template">
+              function Dropdown({ allItems, text }) {
+                const searchOptions = { matchMode: 'whole-word', text };
+              
+                const visibleItems = useMemo(() => {
+                  return searchItems(allItems, searchOptions);
+                }, [allItems, searchOptions]); 
+                // 🚩 Caution: Dependency on an object created in the component body
+            </script></code></pre>
+          </section>
+          <section class="fullscreen">
+            <p>3. Dependency of another Hook</p>
+            <pre><code data-trim data-noescape contenteditable class="javascript"><script type="text/template">
+              function Dropdown({ allItems, text }) {
+                const searchOptions = useMemo(() => {
+                  return { matchMode: 'whole-word', text };
+                }, [text]); // ✅ Only changes when text changes
+              
+                const visibleItems = useMemo(() => {
+                  return searchItems(allItems, searchOptions);
+                }, [allItems, searchOptions]); 
+                // ✅ Only changes when allItems or searchOptions changes
+            </script></code></pre>
+          </section>
+          <section class="fullscreen">
+            <p>3. Dependency of another Hook</p>
+            <pre><code data-trim data-noescape contenteditable class="javascript"><script type="text/template">
+              function Dropdown({ allItems, text }) {
+                const visibleItems = useMemo(() => {
+                  const searchOptions = { matchMode: 'whole-word', text };
+                  return searchItems(allItems, searchOptions);
+                }, [allItems, text]); 
+                // ✅ Only changes when allItems or text changes
+            </script></code></pre>
+            <p class="fragment">
+              <small>
+                The <span class="h">text</span> dependency is now an immutable
+                string 🙌
+              </small>
+            </p>
+          </section>
+          <section>
+            <q>
+              When trying to optimize rerenders,
+              <span class="h">useMemo</span> and
+              <span class="h">useCallback</span> in combination with
+              <span class="h">memo</span> are your best friends
+            </q>
+          </section>
+
+          <section>
+            <img src="images/memoize.png" />
+          </section>
+          <section>
+            <p>There is no significant harm in memoizing everything</p>
+            <p class="fragment">👎 Code becomes less readable</p>
+            <p class="fragment">
+              👎 Not all memoization is effective: a single value can easily
+              break it
+            </p>
+            <p>
+              <small
+                ><a
+                  href="https://react.dev/reference/react/useMemo"
+                  target="_blank"
+                  >docs</a
+                ></small
+              >
+            </p>
+          </section>
+        </section>
+        <section>
+          <section>
+            <h3 class="" style="text-transform: none">React.useContext</h3>
+            <p>
+              useContext is a React Hook that lets you read and subscribe to
+              context from your component.
+            </p>
+            <pre><code data-trim data-noescape contenteditable class="javascript">
+              const value = useContext(SomeContext)
+            </code></pre>
+            <p class="fragment">
+              <small>Let's start with an example 👀</small>
+            </p>
+          </section>
+          <section>
+            <p>Quiz time 🎉</p>
+            <img src="images/context_quiz_qr.png" />
+          </section>
+          <section>
+            <h4>Lessions learned</h4>
+            <pre><code data-trim data-noescape contenteditable class="javascript"><script type="text/template">
+              function MyApp() {
+                const [currentUser, setCurrentUser] = useState(null);
+              
+                function login(response) {
+                  setCurrentUser(response.user);
+                }
+              
+                return (
+                  <AuthContext.Provider value={{ currentUser, login }}>
+                    <Page />
+                  </AuthContext.Provider>
+                );
+              }
+            </script></code></pre>
+            <p>
+              <small>
+                Whenever the provided <span class="h">value</span> changes
+                during a rerender, it triggers a rerender of all the
+                <span class="h">consuming components</span>!
+              </small>
+            </p>
+          </section>
+          <section>
+            <h4>Lessions learned</h4>
+            <pre><code data-trim data-noescape contenteditable class="javascript"><script type="text/template">
+              function MyApp() {
+                const [currentUser, setCurrentUser] = useState(null);
+              
+                const login = useCallback((response) {
+                  setCurrentUser(response.user);
+                }, [response]);
+
+                const value = useMemo(
+                  () => ({ currentUser, login }),
+                  [currentUser, login]
+                );
+              
+                return (
+                  <AuthContext.Provider value={value}>
+                    <Page />
+                  </AuthContext.Provider>
+                );
+              }
+            </script></code></pre>
+            <p>
+              Always wrap the <span class="h">value</span> with a
+              <span class="h">useMemo</span>
+            </p>
+            <p>
+              <small
+                >→ The value comparison is done with the same
+                <span class="h">Object.is</span> function</small
+              >
+            </p>
+          </section>
+          <section>
+            <h4>Lessions learned</h4>
+            <ul>
+              <li class="fragment">
+                When you change any context value, all consuming components will
+                rerender
+              </li>
+              &nbsp;
+              <li class="fragment">
+                React.Context doesn't provide a way to
+                <span class="h">subscribe to only a slice</span>
+              </li>
+              &nbsp;
+              <li class="fragment">
+                When you want to optimise React.Context for
+                <span class="h"> performance reasons</span>, use other libraries
+                like
+                <a href="https://github.com/pmndrs/zustand" target="_blank"
+                  >Zustand</a
+                >, <a href="https://recoiljs.org/">Recoil</a>,
+                <a
+                  href="https://legendapp.com/open-source/state/"
+                  target="_blank"
+                  >Legend-State</a
+                >
+                , <a href="https://redux.js.org/" target="_blank">Redux</a>, ...
+              </li>
+            </ul>
+          </section>
+          <section>
+            <h4>Lessions learned</h4>
+            <p>
+              useContext() always looks for the closest provider
+              <span class="h">above</span> the component that calls it. It
+              <span class="h">searches upwards</span> and does not consider
+              providers in the component from which you're calling useContext().
+            </p>
+            <a
+              href="https://codesandbox.io/s/gifted-wood-3hsqks"
+              target="_blank"
+              >Example</a
+            >
+          </section>
+          <section>
+            <h4>Lessions learned: Zustand</h4>
+            <ul>
+              <li>
+                Never use the <span class="h">useStore hook</span> returned from
+                create
+              </li>
+              <span class="fragment"
+                ><small
+                  >→ all consumers will trigger when changing any store
+                  value!</small
+                ></span
+              >
+              <li class="fragment">
+                Use dedicated <span class="h">selectors</span>
+              </li>
+              &nbsp;
+            </ul>
+          </section>
+          <section>
+            <h4>Lessions learned: Zustand</h4>
+            <ul>
+              <li>
+                When selecting <span class="h">multiple values</span> from a
+                store, add the shallow function
+              </li>
+              <pre><code data-trim data-noescape contenteditable class="javascript"><script type="text/template">
+                import { shallow } from 'zustand/shallow'
+                
+                const useFilters = useStore(state => ({
+                  filters: state.filters,
+                  setFilters: state.setFilters,
+                }), shallow);
+              </script></code></pre>
+              <span class="fragment"
+                ><center>
+                  <small
+                    >→ else all consumers will trigger when changing any store
+                    value!</small
+                  >
+                </center></span
+              >
+            </ul>
+          </section>
+          <section>
+            <h4>Lessions learned: Zustand</h4>
+            <p>
+              Since zustand 4.4 we can use
+              <span class="h">createWithEqualityFn</span>
+            </p>
+            <pre><code data-trim data-noescape contenteditable class="javascript">
+              import { shallow } from 'zustand/shallow'
+              
+              const useStore = createWithEqualityFn(
+                (set) => ({
+                  bears: 0,
+                  nuts: 10,
+                  increasePopulation: () => set((state) => ({ bears: state.bears + 1 })),
+                  eatNut: () => set((state) => ({ nuts: state.nuts - 1 })),
+                }),
+                shallow // Specify the default equality function
+              )
+
+              const useBears = useStore(
+                (state) => ({ 
+                  bears: state.bears,
+                  increasePopulation: state.increasePopulation
+                }),
+              )
+            </code></pre>
+            <a
+              href="https://codesandbox.io/s/wispy-snow-kpxd7d?file=/src/App.tsx"
+              target="_blank"
+              >Example</a
+            >
+          </section>
+        </section>
+        <section>
+          <section>
+            <h3>React native performance</h3>
+          </section>
+          <section>
+            <h4>Hermes</h4>
+            <ul>
+              <li>
+                An
+                <a href="https://github.com/facebook/hermes" target="_blank"
+                  >open source</a
+                >
+                JavaScript engine optimized for React Native
+              </li>
+              <li>
+                Build-time
+                <span class="h"
+                  >precompilation of JavaScript into efficient bytecode</span
+                >
+                that enables faster startup times
+                <small
+                  ><a
+                    href="https://hermesengine.dev/playground/"
+                    target="_blank"
+                    >playground</a
+                  ></small
+                >
+              </li>
+              <li>
+                Better <span class="h">memory management</span> through improved
+                garbage collection to reduce memory usage and improve runtime
+                performance
+              </li>
+              <li>Enabled by default since React Native 0.70</li>
+            </ul>
+            &nbsp;
+            <span class="fragment">
+              <center>
+                <small
+                  >→ Better Startup time, lesser memory usage, better runtime
+                  performance</small
+                >
+              </center>
+            </span>
+          </section>
+          <section>
+            <h4>Images</h4>
+            <ul>
+              <span class="fragment">
+                <li>
+                  <a
+                    href="https://github.com/DylanVann/react-native-fast-image"
+                    target="_blank"
+                    >React Native Fast Image</a
+                  >
+                </li>
+                <small
+                  >→ Aggressively cache images, preload images, priority
+                  loading, border-radius support</small
+                >
+              </span>
+
+              <span class="fragment">
+                <li>
+                  <a href="https://developers.google.com/speed/webp">WebP</a>
+                  format: typically providing 3x smaller file sizes compared to
+                  PNG
+                </li>
+                <small
+                  >→
+                  <a
+                    href="https://reactnative.dev/docs/image#gif-and-webp-support-on-android"
+                    target="_blank"
+                    >Android</a
+                  >
+                  requires an extra module. iOS requires 14+</small
+                >
+              </span>
+
+              <span class="fragment">
+                <li>
+                  SVGs: render SVGs directly in the app using
+                  <a href="https://github.com/software-mansion/react-native-svg"
+                    >react-native-svg</a
+                  >
+                </li>
+                <small
+                  >→ using SVGs can reduce the size of images by 90% while
+                  keeping the quality intact.</small
+                >
+              </span>
+
+              <span class="fragment">
+                <li>
+                  Resize and compress images to improve bandwidth and loading
+                  times
+                </li>
+                <small>→ A lot of tools exist to automate to process</small>
+              </span>
+            </ul>
+          </section>
+          <section>
+            <h4>Lists</h4>
+          </section>
+          <section>
+            <h4>Flatlist</h4>
+            <ul>
+              <span class="fragment">
+                <li>
+                  It will look for a <span class="h">key prop</span> on each
+                  item and use that for the React key
+                </li>
+                <small>→ Best to always provide a keyExtractor function!</small>
+              </span>
+
+              <span class="fragment">
+                <li>
+                  FlatList is a <span class="h">Pure Component</span> (like
+                  React.memo)
+                </li>
+
+                <small
+                  >→ rerenders can be eliminated by using stable
+                  data/functions</small
+                >
+              </span>
+              <span class="fragment">
+                <li>
+                  Always use a FlatList over a
+                  <span class="h">ScrollView</span> for lists
+                </li>
+                <small
+                  >→ ScrollView creates JS components and native views for
+                  everything all at once</small
+                >
+              </span>
+            </ul>
+          </section>
+          <section>
+            <h4>Flatlist</h4>
+            <p>
+              Renders items <span class="h">lazily</span> and removes items that
+              scroll way off screen to
+              <span class="h">save memory and processing time</span>
+            </p>
+            <img
+              src="https://www.scaler.com/topics/images/react-window-1.webp"
+              style="width: 600px"
+            />
+          </section>
+          <section>
+            <h4>Flatlist optimisations</h4>
+            <p>
+              1. <span class="h">getItemLayout</span>: skips the measurement of
+              dynamic content if you know the size (height or width) of items
+              ahead of time
+            </p>
+            <pre><code data-trim data-noescape contenteditable class="javascript">
+            getItemLayout={(data, index) => ({
+              length: ITEM_HEIGHT,
+              offset: ITEM_HEIGHT * index,
+              index
+            })}
+          </code></pre>
+            <small class="fragment"
+              >→ Can be a great performance boost for lists of several hundred
+              items</small
+            >
+          </section>
+          <section>
+            <h4>Flatlist optimisations</h4>
+            <p>
+              2. <span class="h">removeClippedSubviews</span>: unloads
+              off-screen views, freeing up resources.
+            </p>
+
+            <pre><code data-trim data-noescape contenteditable class="javascript"><script type="text/template">
+              <FlatList
+                data={data}
+                removeClippedSubviews={true}
+                renderItem={renderItem}
+              />
+          </script></code></pre>
+            <small class="fragment" style="margin-bottom: 8px"
+              >→ Possible edge case when the items in a list have a complex
+              state or contain media such as images or videos</small
+            >
+            <small class="fragment">→ Enabled on Android by default</small>
+          </section>
+          <section>
+            <h4>FlatList optimisations</h4>
+            <p>
+              3. <span class="h">maxToRenderPerBatch</span>: how many list items
+              will be rendered on each scroll. Defaults to 10
+            </p>
+            <small class="fragment"
+              >→ a high number will give you a higher fill rate which results
+              less blank spaces</small
+            >
+            <small class="fragment"
+              >→ A higher number will decrease performance</small
+            >
+            <p class="fragment">
+              Example: If 2 items cover 100% of the screen height then set this
+              prop to 3-5. If 5 items cover 100% of the screen height then set
+              it to around 8.
+            </p>
+          </section>
+          <section>
+            <h4>FlatList optimisations</h4>
+            <p>
+              4. <span class="h">windowSize</span>: the maximum number of items
+              rendered outside of the visible area, in units of visible lengths.
+              Defaults to 21
+            </p>
+            <p class="fragment">
+              Example: if each item covers 50% of the device height (so 2 items
+              in viewport) then you can set the windowSize to around 5. That
+              should be enough because by the time you scroll next 10 items (2 *
+              5) new items would be rendered for sure.
+            </p>
+          </section>
+          <section>
+            <h4>FlatList optimisations</h4>
+            <p>
+              5. <span class="h">updateCellsBatchingPeriod</span>: it tells the
+              VirtualizedList the delay, in milliseconds, between batch renders.
+            </p>
+            <small class="fragment"
+              >→ it defines how frequently your component will be rendering the
+              windowed items.</small
+            >
+          </section>
+          <section>
+            <h4>FlatList optimisations</h4>
+            <p>
+              6. <span class="h">initialNumToRender</span>: how many items to
+              render in the initial batch. This should be enough to fill the
+              screen. Defaults to 10
+            </p>
+            <small class="fragment"
+              >→ A lower number will improve the initial render performance of
+              the list</small
+            >
+            <small class="fragment"
+              >→ A higher number will reduce initial render performance</small
+            >
+            <p class="fragment">
+              ⚠️ set a number that's enough to fill the viewport in all
+              supported devices, not more and not less!
+            </p>
+          </section>
+          <section>
+            <h4>FlatList optimisations</h4>
+            <ul>
+              <li>There is no golden rule for most of these properties.</li>
+              <li>
+                Try to keep list items <span class="h">simple/light</span> and
+                avoid unnecessary View nesting
+              </li>
+              <li>
+                Use <span class="h">React.memo</span> for list items returned in
+                <span class="h">renderItem</span>
+              </li>
+            </ul>
+          </section>
+          <section>
+            <h4>FlashList</h4>
+            <p class="fragment">
+              Swap from FlatList in seconds. Get instant performance. 🪄
+            </p>
+            <p class="fragment">
+              FlashList does a lot of these of these optimisations under the
+              hood
+            </p>
+          </section>
+          <section>
+            <h4>
+              FlashList Metrics:
+              <span style="text-transform: none">Load time</span>
+            </h4>
+            <pre><code data-trim data-noescape contenteditable class="javascript"><script type="text/template">
+              const Component = () => {
+                const onLoadListener = useCallback(({ elapsedTimeInMs }) => {
+                    console.log("Load time", elapsedTimeInMs);
+                }, []);
+
+                return <FlashList onLoad={onLoadListener} />;
+              };
+            </script></code></pre>
+            <small
+              >→ Track the time taken to load the list. This tracks elapsed time
+              from the point the list was created to the time when it's children
+              are visible to the user.</small
+            >
+          </section>
+          <section>
+            <h4>
+              FlashList Metrics:
+              <span style="text-transform: none">Blank area</span>
+            </h4>
+            <pre><code data-trim data-noescape contenteditable class="javascript"><script type="text/template">
+              const MyComponent = () => {
+                const ref = useRef(null);
+                const [blankAreaTrackerResult, onBlankArea] = useBlankAreaTracker(ref);
+
+                useEffect(() => {
+                  return () => {
+                    // `cumulativeBlankArea` is the total blank area that the user has seen while scrolling the list.
+                    console.log(blankAreaTrackerResult.cumulativeBlankArea);
+                    // maxBlankArea is the maximum blank area that the user has seen while scrolling the list.
+                    console.log(blankAreaTrackerResult.maxBlankArea);
+                  };
+                }, []);
+              
+                return <FlashList ref={ref} onBlankArea={onBlankArea} />;
+              };
+            </script></code></pre>
+          </section>
+          <section>
+            <h4>Animations</h4>
+          </section>
+          <section class="fullscreen">
+            <h4>
+              Animations:
+              <span style="text-transform: none"> Animated</span>
+            </h4>
+            <p>
+              perfect for <span class="h">simple animations</span> but limited
+              in performance when trying to animate for example height
+            </p>
+            <small class="fragment"
+              >⚠️ you can only animate non-layout properties on the UI
+              thread</small
+            >
+            <pre><code data-trim data-noescape contenteditable class="javascript"><script type="text/template">
+              const heightAnim = useRef(new Animated.Value(0)).current;
+
+              useEffect(() => {
+                Animated.timing(heightAnim, {
+                  toValue: 500,
+                  duration: 2000,
+                  // ❗️Style property 'height' is not supported by native animated module
+                  useNativeDriver: true,
+                }).start();
+              }, [heightAnim]);
+
+              return <Animated.View style={{ height: fadeAnim }}>...</Animated.View>;
+            </script></code></pre>
+          </section>
+          <section>
+            <h4>
+              Animations:
+              <span style="text-transform: none">Reanimated</span>
+            </h4>
+            <ul>
+              <li>Built with <span class="h">performance</span> in mind</li>
+              <li>Handles complex animations and gestures out of the box</li>
+            </ul>
+            <small class="fragment"
+              >→ Recommended to use Reanimated over Animated</small
+            >
+          </section>
+        </section>
+        <section>
+          <section>
+            <h3>Measure and monitor</h3>
+          </section>
+          <section>
+            <h4>Measure</h4>
+            <p>React DevTools</p>
+            <pre><code data-trim data-noescape contenteditable >npx react-devtools</code></pre>
+            <small
+              >→ Standalone electron application that can be used to debug
+              non-browser-based React applications: React Native</small
+            >
+          </section>
+          <section class="fullscreen">
+            <p style="margin: 0"><span class="h">Components</span> tab</p>
+            <img src="images/devtools-components.png" style="width: 500px" />
+            <p>Overview of rendered component tree</p>
+          </section>
+          <section class="fullscreen">
+            <p style="margin: 0">
+              <span class="h">Components</span> tab details
+            </p>
+            <img
+              src="images/devtools-components-detail.png"
+              style="width: 600px"
+            />
+          </section>
+          <section>
+            <p style="margin: 0">
+              <span class="h">Components</span> tab: settings
+            </p>
+            <p><img src="images/devtools-components-settings.png" /></p>
+            <small>→ Hide components via filters </small>
+          </section>
+          <section>
+            <h4>Profiler</h4>
+            <ul>
+              <li>
+                Groups performance info by commit: Commits are displayed in a
+                bar chart near the top of the profiler:
+              </li>
+              <small
+                >→ The
+                <a
+                  href="https://reactnative.dev/architecture/render-pipeline"
+                  target="_blank"
+                  >commit phase</a
+                >
+                is when React Native applies layout calculation</small
+              >
+              <img src="images/devtools-profiler-commits.png" />
+              <li>Each bar in the chart represents a single commit</li>
+              <li>
+                The color and height of each bar corresponds to how long that
+                commit took to render.
+              </li>
+            </ul>
+          </section>
+          <section>
+            <h4>Profiler: Flamegraph</h4>
+            <ul>
+              <li>
+                The flame chart view represents the state of your application
+                for <span class="h">a particular commit</span>
+              </li>
+              <li>Each bar in the chart represents a React component</li>
+              <ol>
+                <li>🟡 components: took more time</li>
+                <li>🔵 components: took less time</li>
+                <li>👽 components: did not render</li>
+              </ol>
+            </ul>
+          </section>
+          <section>
+            <h4>Profiler: Ranked</h4>
+            <ul>
+              <li>
+                The ranked chart view represents a
+                <span class="h">single commit</span>
+              </li>
+              <li>Each bar in the chart represents a React component</li>
+              <li>
+                The chart is <span class="h">ordered</span> so that the
+                components which took the longest to render are at the top.
+              </li>
+            </ul>
+          </section>
+          <section>
+            <p>Let's profile 🕵️‍♂️</p>
+          </section>
+          <section>
+            <p>General remarks</p>
+            <ol>
+              <li class="fragment">
+                Profile the app in client builds to get the most accurate
+                results
+                <a
+                  href="https://gist.github.com/usrbowe/cf0fe2bf4e73923059d06bb442d054f9"
+                  target="_blank"
+                  ><small>Link</small></a
+                >
+              </li>
+              <li class="fragment">
+                Keep state/hooks <span class="h"> as close as possible</span> to
+                your components
+              </li>
+              <li class="fragment">
+                Do not over optimise, React is fast and rerenders are not always
+                problematic
+              </li>
+            </ol>
+          </section>
+          <section>
+            <p>Bonus ✨</p>
+            <iframe
+              width="560"
+              height="315"
+              src="https://www.youtube.com/embed/lGEMwh32soc?si=Fs62mpkjLR6OHPwa"
+              title="YouTube video player"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+            ></iframe>
+          </section>
+          <section>
+            <q>en ze leefden nog lang en gelukkig</q>
+            <p class="fragment">
+              The end
+              <img
+                style="width: 20px"
+                src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/React-icon.svg/2300px-React-icon.svg.png"
+              />
+            </p>
+          </section>
+        </section>
+      </div>
+    </div>
+
+    <script src="dist/reveal.js"></script>
+    <script src="plugin/notes/notes.js"></script>
+    <script src="plugin/markdown/markdown.js"></script>
+    <script src="plugin/highlight/highlight.js"></script>
+    <script>
+      // More info about initialization & config:
+      // - https://revealjs.com/initialization/
+      // - https://revealjs.com/config/
+      Reveal.initialize({
+        hash: true,
+
+        // Learn about plugins: https://revealjs.com/plugins/
+        plugins: [RevealMarkdown, RevealHighlight, RevealNotes],
+      });
+    </script>
+  </body>
 </html>

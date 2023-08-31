@@ -1,0 +1,26 @@
+.h {
+  color: #ff863b
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+
+.fullscreen {
+  padding: 0 !important;
+}
+
+.fullscreen pre {
+  width: 100% !important;
+  margin: 0 !important;
+  box-shadow: none !important
+}
+
+.fullscreen code {
+  max-height: 100% !important;
+}
